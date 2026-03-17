@@ -8,127 +8,76 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Stable Production Versions of React -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        body { -webkit-tap-highlight-color: transparent; background-color: #f8fafc; margin: 0; padding: 0; }
-        #root:empty::before {
-            content: "Loading PartPulse Pro...";
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            font-family: sans-serif;
-            color: #64748b;
-            font-weight: bold;
-        }
-    </script>
+        body { background-color: #f8fafc; font-family: sans-serif; margin: 0; }
+        #error-display { padding: 20px; color: #ef4444; display: none; }
+    </style>
 </head>
 <body>
+    <div id="error-display"></div>
     <div id="root"></div>
 
     <script>
-        // Use standard JS to avoid Babel white-screen issues
-        const { useState, useEffect, useRef, createElement: h } = React;
+        // Error handling to stop the "White Screen" mystery
+        window.onerror = function(msg, url, line) {
+            const errDiv = document.getElementById('error-display');
+            errDiv.style.display = 'block';
+            errDiv.innerHTML = `<strong>App Error:</strong> ${msg} <br><small>Line: ${line}</small>`;
+        };
+
+        const { useState, useEffect, createElement: h } = React;
 
         const App = () => {
             const [inventory, setInventory] = useState(() => {
-                const saved = localStorage.getItem('partpulse_v3');
+                const saved = localStorage.getItem('partpulse_v4');
                 return saved ? JSON.parse(saved) : [];
             });
             const [view, setView] = useState('inventory');
             const [showAdd, setShowAdd] = useState(false);
-            const [search, setSearch] = useState("");
-            const [newItem, setNewItem] = useState({ name: "", price: "", bin: "" });
+            const [name, setName] = useState("");
+            const [price, setPrice] = useState("");
 
             useEffect(() => {
-                localStorage.setItem('partpulse_v3', JSON.stringify(inventory));
-            }, [inventory]);
+                localStorage.setItem('partpulse_v4', JSON.stringify(inventory));
+                if (window.lucide) window.lucide.createIcons();
+            }, [inventory, view, showAdd]);
 
-            const renderIcon = (name, size = 20) => {
-                // Lucide helper for standard JS
-                return h('i', { 'data-lucide': name, style: { width: size, height: size } });
+            const addItem = () => {
+                if (!name) return;
+                setInventory([{ id: Date.now(), name, price }, ...inventory]);
+                setName(""); setPrice(""); setShowAdd(false);
             };
 
-            useEffect(() => {
-                if (window.lucide) window.lucide.createIcons();
-            }, [view, showAdd]);
-
-            return h('div', { className: "max-w-md mx-auto min-h-screen pb-32 bg-slate-50" },
-                // Header Nav
-                h('nav', { className: "p-4 bg-white border-b sticky top-0 z-10 flex justify-around pt-12" },
-                    h('button', { 
-                        onClick: () => setView('inventory'),
-                        className: `flex flex-col items-center ${view === 'inventory' ? 'text-blue-600' : 'text-slate-400'}`
-                    }, renderIcon('package'), h('span', { className: "text-[10px] font-bold mt-1" }, "STOCK")),
-                    h('button', { 
-                        onClick: () => setView('market'),
-                        className: `flex flex-col items-center ${view === 'market' ? 'text-blue-600' : 'text-slate-400'}`
-                    }, renderIcon('globe'), h('span', { className: "text-[10px] font-bold mt-1" }, "MARKET"))
-                ),
-
-                // Inventory List
-                view === 'inventory' && h('div', { className: "p-5" },
-                    h('div', { className: "relative mb-4" },
-                        h('input', { 
-                            className: "w-full p-4 pl-12 bg-white rounded-2xl shadow-sm outline-none", 
-                            placeholder: "Search parts...",
-                            value: search,
-                            onChange: (e) => setSearch(e.target.value)
-                        })
-                    ),
-                    inventory.length === 0 ? h('p', { className: "text-center mt-10 text-slate-400" }, "No parts logged yet.") :
-                    inventory.filter(i => i.name.toLowerCase().includes(search.toLowerCase())).map(item => 
-                        h('div', { key: item.id, className: "bg-white p-4 rounded-2xl mb-3 shadow-sm border border-slate-100 flex justify-between items-center" },
-                            h('div', null, 
-                                h('h3', { className: "font-bold text-slate-900" }, item.name),
-                                h('p', { className: "text-[10px] text-slate-400" }, `BIN: ${item.bin || 'None'}`)
-                            ),
-                            h('span', { className: "font-black text-blue-600" }, `$${item.price}`)
-                        )
+            return h('div', { className: "max-w-md mx-auto min-h-screen pb-20" },
+                h('nav', { className: "p-6 bg-white border-b flex justify-between items-center pt-12" },
+                    h('h1', { className: "font-black italic text-xl text-blue-600" }, "PARTPULSE PRO"),
+                    h('button', { onClick: () => setView(view === 'inventory' ? 'market' : 'inventory') }, 
+                        h('i', { 'data-lucide': view === 'inventory' ? 'globe' : 'package' })
                     )
                 ),
+                
+                view === 'inventory' ? h('div', { className: "p-4" },
+                    inventory.length === 0 ? h('div', { className: "text-center py-20 text-slate-400" }, "Stockroom Empty") :
+                    inventory.map(item => h('div', { key: item.id, className: "bg-white p-4 rounded-2xl mb-3 shadow-sm flex justify-between" },
+                        h('span', { className: "font-bold" }, item.name),
+                        h('span', { className: "text-blue-600 font-black" }, `$${item.price}`)
+                    ))
+                ) : h('div', { className: "p-10 text-center" }, "Market Intelligence Active"),
 
-                // Market View (Simplified)
-                view === 'market' && h('div', { className: "p-5 text-center" },
-                    h('div', { className: "bg-slate-900 p-8 rounded-[2rem] text-white" },
-                        h('h2', { className: "font-bold italic uppercase" }, "Market Intelligence"),
-                        h('p', { className: "text-xs text-slate-400 mt-2" }, "Scan active for high-demand items."),
-                        h('button', { className: "mt-6 bg-blue-600 px-6 py-3 rounded-xl font-bold w-full" }, "RUN SCAN")
-                    )
-                ),
-
-                // Floating Action Button
                 h('button', { 
                     onClick: () => setShowAdd(true),
-                    className: "fixed bottom-10 right-6 w-16 h-16 bg-blue-600 text-white rounded-full shadow-xl flex items-center justify-center text-3xl font-light"
+                    className: "fixed bottom-8 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg text-2xl"
                 }, "+"),
 
-                // Add Modal
-                showAdd && h('div', { className: "fixed inset-0 bg-black/50 z-50 flex items-end" },
-                    h('div', { className: "bg-white w-full p-8 rounded-t-[2rem] pb-12" },
-                        h('div', { className: "flex justify-between mb-6" }, 
-                            h('h2', { className: "font-black uppercase" }, "Add Part"),
-                            h('button', { onClick: () => setShowAdd(false) }, "X")
-                        ),
-                        h('input', { 
-                            className: "w-full p-4 bg-slate-100 rounded-xl mb-3 outline-none", 
-                            placeholder: "Part Name",
-                            onChange: (e) => setNewItem({...newItem, name: e.target.value})
-                        }),
-                        h('div', { className: "flex gap-2" },
-                            h('input', { className: "w-1/2 p-4 bg-slate-100 rounded-xl outline-none", placeholder: "Price", onChange: (e) => setNewItem({...newItem, price: e.target.value}) }),
-                            h('input', { className: "w-1/2 p-4 bg-slate-100 rounded-xl outline-none", placeholder: "Bin", onChange: (e) => setNewItem({...newItem, bin: e.target.value}) })
-                        ),
-                        h('button', { 
-                            className: "w-full bg-slate-900 text-white p-5 rounded-2xl mt-6 font-bold uppercase tracking-widest",
-                            onClick: () => {
-                                setInventory([{...newItem, id: Date.now()}, ...inventory]);
-                                setShowAdd(false);
-                            }
-                        }, "Save to Stock")
+                showAdd && h('div', { className: "fixed inset-0 bg-black/60 flex items-end z-50" },
+                    h('div', { className: "bg-white w-full p-8 rounded-t-3xl" },
+                        h('input', { className: "w-full p-4 bg-slate-100 rounded-xl mb-4", placeholder: "Part Name", onChange: e => setName(e.target.value) }),
+                        h('input', { className: "w-full p-4 bg-slate-100 rounded-xl mb-6", placeholder: "Price", onChange: e => setPrice(e.target.value) }),
+                        h('button', { className: "w-full bg-blue-600 text-white p-4 rounded-xl font-bold", onClick: addItem }, "SAVE PART"),
+                        h('button', { className: "w-full mt-2 text-slate-400 text-sm", onClick: () => setShowAdd(false) }, "Cancel")
                     )
                 )
             );
